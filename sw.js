@@ -8,9 +8,9 @@ const PREFIX =
   encodeURIComponent(ROOT.pathname) +
   '-';
 
-const CACHE = PREFIX + 'v1';
+const CACHE = PREFIX + 'v2';
 
-const SHELL = [
+const ARCHIVOS = [
   './',
   './index.html',
   './manifest.webmanifest',
@@ -18,8 +18,8 @@ const SHELL = [
   './icono-512.png'
 ];
 
-const ALLOWED = new Set(
-  SHELL.map(
+const PERMITIDOS = new Set(
+  ARCHIVOS.map(
     ruta => new URL(ruta, ROOT).href
   )
 );
@@ -29,7 +29,18 @@ self.addEventListener(
   evento => {
     evento.waitUntil(
       caches.open(CACHE).then(
-        cache => cache.addAll(SHELL)
+        async cache => {
+          await cache.addAll([
+            './',
+            './index.html',
+            './manifest.webmanifest'
+          ]);
+
+          await Promise.allSettled([
+            cache.add('./icono-192.png'),
+            cache.add('./icono-512.png')
+          ]);
+        }
       )
     );
   }
@@ -66,13 +77,13 @@ self.addEventListener(
 
     if (
       solicitud.method !== 'GET' ||
-      !ALLOWED.has(solicitud.url)
+      !PERMITIDOS.has(solicitud.url)
     ) {
       return;
     }
 
-    // Solo se guarda la portada pública.
-    // No se guardan clientes, pagos ni sesiones.
+    // Guarda únicamente la portada pública.
+    // No guarda clientes, pagos ni contraseñas.
     evento.respondWith(
       fetch(solicitud)
         .then(respuesta => {
@@ -80,8 +91,7 @@ self.addEventListener(
             respuesta.ok &&
             respuesta.type === 'basic'
           ) {
-            const copia =
-              respuesta.clone();
+            const copia = respuesta.clone();
 
             evento.waitUntil(
               caches.open(CACHE).then(
